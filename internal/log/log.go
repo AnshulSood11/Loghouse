@@ -1,8 +1,7 @@
 package log
 
 import (
-	"fmt"
-	api "github.com/anshulsood11/proglog/log-server/api/v1"
+	log_v1 "github.com/anshulsood11/loghouse/api/v1"
 	"io"
 	"io/ioutil"
 	"os"
@@ -94,7 +93,7 @@ Append appends a record to the log. We append the record to the
 active segment. Afterward, if the segment is at its max size (per the max size
 configs), then we make a new active segment.
 */
-func (l *Log) Append(record *api.Record) (uint64, error) {
+func (l *Log) Append(record *log_v1.Record) (uint64, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock() // We can optimize this by making the locks per segment level
 	off, err := l.activeSegment.Append(record)
@@ -110,7 +109,7 @@ func (l *Log) Append(record *api.Record) (uint64, error) {
 /*
 Read reads the record stored at the given offset
 */
-func (l *Log) Read(off uint64) (*api.Record, error) {
+func (l *Log) Read(off uint64) (*log_v1.Record, error) {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 	var s *segment
@@ -131,7 +130,7 @@ func (l *Log) Read(off uint64) (*api.Record, error) {
 		s = segment
 	}
 	if s == nil || s.nextOffset <= off {
-		return nil, fmt.Errorf("offset out of range: %d", off)
+		return nil, log_v1.ErrOffsetOutOfRange{Offset: off}
 	}
 	return s.Read(off)
 }

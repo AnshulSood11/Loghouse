@@ -2,7 +2,7 @@ package log
 
 import (
 	"fmt"
-	api "github.com/anshulsood11/proglog/log-server/api/v1"
+	api "github.com/anshulsood11/loghouse/api/v1"
 	"github.com/golang/protobuf/proto"
 	"os"
 	"path"
