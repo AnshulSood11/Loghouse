@@ -1,4 +1,5 @@
 # Log Package
+
 A log is an append-only sequence of records. "logs” are binary-
 encoded messages meant for other programs to read.
 When you append a record to a log, the log assigns the record a unique and
@@ -28,8 +29,9 @@ you get the entry from the index file for the record, which tells you the positi
 of the record in the store file, and then you read the record at that position
 in the store file. Since the index file requires only two small fields—the offset
 and stored position of the record—the index file is much smaller than the
-store file that stores all your record data. Index files are small enough that we can 
-memory-map ([read more](https://mecha-mind.medium.com/understanding-when-and-how-to-use-memory-mapped-files-b94707df30e9)) them and make operations on the file as fast as operating on in-memory data.
+store file that stores all your record data. Index files are small enough that we can
+memory-map ([read more](https://mecha-mind.medium.com/understanding-when-and-how-to-use-memory-mapped-files-b94707df30e9))
+them and make operations on the file as fast as operating on in-memory data.
 
 * Record—the data stored in our log.
 * Store—the file we store records in.

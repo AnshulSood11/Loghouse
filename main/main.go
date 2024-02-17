@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/anshulsood11/proglog/log-server/internal/server"
+	"github.com/anshulsood11/loghouse/internal/server"
 	"log"
 )
 

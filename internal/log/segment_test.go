@@ -1,7 +1,7 @@
 package log
 
 import (
-	api "github.com/anshulsood11/proglog/log-server/api/v1"
+	api "github.com/anshulsood11/loghouse/api/v1"
 	"github.com/stretchr/testify/require"
 	"io"
 	"io/ioutil"

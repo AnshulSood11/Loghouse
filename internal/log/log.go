@@ -1,8 +1,7 @@
 package log
 
 import (
-	"fmt"
-	api "github.com/anshulsood11/proglog/log-server/api/v1"
+	api "github.com/anshulsood11/loghouse/api/v1"
 	"io"
 	"io/ioutil"
 	"os"
@@ -131,7 +130,7 @@ func (l *Log) Read(off uint64) (*api.Record, error) {
 		s = segment
 	}
 	if s == nil || s.nextOffset <= off {
-		return nil, fmt.Errorf("offset out of range: %d", off)
+		return nil, api.ErrOffsetOutOfRange{Offset: off}
 	}
 	return s.Read(off)
 }
