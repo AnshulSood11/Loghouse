@@ -1,7 +1,7 @@
 package log
 
 import (
-	log_v1 "github.com/anshulsood11/loghouse/api/v1"
+	api "github.com/anshulsood11/loghouse/api/v1"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"io/ioutil"
@@ -33,7 +33,7 @@ func TestLog(t *testing.T) {
 }
 
 func testAppendRead(t *testing.T, log *Log) {
-	recordToAppend := &log_v1.Record{
+	recordToAppend := &api.Record{
 		Value: []byte("hello world"),
 	}
 	off, err := log.Append(recordToAppend)
@@ -47,12 +47,12 @@ func testAppendRead(t *testing.T, log *Log) {
 func testOutOfRangeErr(t *testing.T, log *Log) {
 	read, err := log.Read(1)
 	require.Nil(t, read)
-	apiErr := err.(log_v1.ErrOffsetOutOfRange)
+	apiErr := err.(api.ErrOffsetOutOfRange)
 	require.Equal(t, uint64(1), apiErr.Offset)
 }
 
 func testInitExisting(t *testing.T, o *Log) {
-	recordToAppend := &log_v1.Record{
+	recordToAppend := &api.Record{
 		Value: []byte("hello world"),
 	}
 	for i := 0; i < 3; i++ {
@@ -77,7 +77,7 @@ func testInitExisting(t *testing.T, o *Log) {
 }
 
 func testReader(t *testing.T, log *Log) {
-	recordToAppend := &log_v1.Record{
+	recordToAppend := &api.Record{
 		Value: []byte("hello world"),
 	}
 	off, err := log.Append(recordToAppend)
@@ -86,14 +86,14 @@ func testReader(t *testing.T, log *Log) {
 	reader := log.Reader()
 	b, err := ioutil.ReadAll(reader)
 	require.NoError(t, err)
-	read := &log_v1.Record{}
+	read := &api.Record{}
 	err = proto.Unmarshal(b[lenWidth:], read)
 	require.NoError(t, err)
 	require.Equal(t, recordToAppend.Value, read.Value)
 }
 
 func testTruncate(t *testing.T, log *Log) {
-	recordToAppend := &log_v1.Record{
+	recordToAppend := &api.Record{
 		Value: []byte("hello world"),
 	}
 	for i := 0; i < 3; i++ {
