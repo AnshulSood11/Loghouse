@@ -5,6 +5,8 @@ option go_package = "github.com/anshulsood11/api/log_v1";
 message Record {
   bytes value = 1;
   uint64 offset = 2;
+  uint64 term = 3;
+  uint32 type = 4;
 }
 
 service Log {

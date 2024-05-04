@@ -2,9 +2,9 @@ package discovery
 
 import (
 	"fmt"
+	"github.com/anshulsood11/loghouse/internal/util"
 	"github.com/hashicorp/serf/serf"
 	"github.com/stretchr/testify/require"
-	"net"
 	"testing"
 	"time"
 )
@@ -30,7 +30,7 @@ func TestMembership(t *testing.T) {
 
 func setupMember(t *testing.T, members []*Membership) ([]*Membership, *handler) {
 	id := len(members)
-	ports := GetFreePorts(1)
+	ports := util.GetFreePorts(1)
 	addr := fmt.Sprintf("%s:%d", "127.0.0.1", ports[0])
 	tags := map[string]string{
 		"rpc_addr": addr,
@@ -73,26 +73,4 @@ func (h *handler) Leave(id string) error {
 		h.leaves <- id
 	}
 	return nil
-}
-
-func GetFreePorts(n int) (ports []int) {
-	port := 10000
-	for len(ports) < n {
-		port++
-		ln, err := listen(port)
-		if err != nil {
-			continue
-		}
-		err1 := ln.Close()
-		if err != nil {
-			panic(err1)
-		}
-		ports = append(ports, port)
-	}
-
-	return ports
-}
-
-func listen(port int) (*net.TCPListener, error) {
-	return net.ListenTCP("tcp", &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: port})
 }
