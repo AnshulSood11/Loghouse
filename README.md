@@ -33,7 +33,7 @@ operations on the file as fast as operating on in-memory data.
 
 Structure of the log package is as follows:
 
-* Record — not an actual struct, it refers to the data stored in our log.
+* Record — not an actual struct, it refers to the data stored in the log.
 * Store — the file we store records in.
 * Index — the file we store index entries in.
 * Segment — the abstraction that ties a store and an index together.
@@ -51,7 +51,7 @@ get generated. These stubs are then implemented in [server.go](internal/server/s
 ## Distribute Loghouse
 
 Since there's a hardware limitation on the size of data we can store on a single
-server, at some point the only option is to add more servers to host our Loghouse
+server, at some point the only option is to add more servers to host this Loghouse
 service. With the addition of nodes, challenges of server-to-server Service discovery,
 Replication, Consensus and Load Balancing arise, which are tackled as follows:
 
@@ -62,8 +62,8 @@ rest of the cluster. This Server-to-server service discovery is implemented usin
 [Serf](https://www.serf.io/) — a library that provides decentralized cluster membership,
 failure detection, and orchestration.
 
-The [discovery](internal/discovery) package integrates Serf where Membership is our
-type wrapping Serf to provide discovery and cluster membership to our service.
+The [discovery](internal/discovery) package integrates Serf where Membership is the
+type wrapping Serf to provide discovery and cluster membership to this service.
 
 ### Replication and Consensus using Raft
 
@@ -73,7 +73,7 @@ availability, we need to ensure that the log written to one node get copied or r
 to other nodes as well.
 
 We might easily implement a replicator by making each node subscribe to other nodes using
-the ConsumeStream rpc in [server](internal/server/server.go#L120). However, this will
+the [ConsumeStream](internal/server/server.go#L120) rpc. However, this will
 cause an infinite replication of each log unless we introduce some kind of coordinator
 which will keep a track of each log's offset, ensure that all nodes replicate that log
 at the same offset exactly once (form consensus on the log's offset) and prevent infinite
@@ -82,6 +82,23 @@ replication.
 There are many algorithms in distributed systems to solve this most popular being
 Paxos and Raft. Raft is used in this project and utilizes [this](https://github.com/hashicorp/raft)
 awesome implementation by Hashicorp. This piece of code sits in [distributed_log.go](internal/log/distributed_log.go)
-where we setup Raft. Raft library uses a FSM interface to execute the business logic of
-our service as well as the snapshotting and Restoring logic. This FSM is implemented in
+where we set up Raft. Raft library uses a FSM interface to execute the business logic of
+Loghouse as well as the Snapshotting and Restoring logic. This FSM is implemented in
 [fsm.go](internal/log/fsm.go)
+
+Membership and distributed_log are stitched together in [agent.go](internal/agent/agent.go). 
+Agent is the starting point of the service and will set up everything - distributed log, 
+grpc server, membership handling and authorization.
+
+### Encryption, Authentication and Authorization
+
+Client-server connection is authenticated using mTLS. To generate the certificates execute
+``make gencert``. This uses [cfssl](https://github.com/cloudflare/cfssl) to generate
+client and server self-signed certificates from the config files present in [resources](resources).
+These are then used to authenticate and encrypt gRPC and Raft connections. RSA-2048 is used
+for encryption on both client and server.
+
+Authorization is implemented using ACLs. [Casbin](https://github.com/casbin/casbin) is used to
+provide the ACL functionality. In [authorizer.go](internal/auth/authorizer.go) we set up Casbin
+to enforce the policies defined in [policy.csv](resources/policy.csv) as per the model: [model.conf](resources/model.conf).
+Authorization takes place during Produce/Consume RPCs in [server.go](internal/server/server.go).

@@ -3,7 +3,7 @@ package log
 import (
 	"fmt"
 	api "github.com/anshulsood11/loghouse/api/v1"
-	"github.com/anshulsood11/loghouse/internal/util"
+	"github.com/anshulsood11/loghouse/internal/test_util"
 	"github.com/hashicorp/raft"
 	"github.com/stretchr/testify/require"
 	"io/ioutil"
@@ -18,7 +18,7 @@ func TestMultipleNodes(t *testing.T) {
 	var nodes []*DistributedLog
 	// setting up a three node cluster
 	nodeCount := 3
-	ports := util.GetFreePorts(3)
+	ports := test_util.GetFreePorts(3)
 
 	for i := 0; i < nodeCount; i++ {
 		dataDir, err := ioutil.TempDir("", "distributed-log-test")
@@ -30,7 +30,7 @@ func TestMultipleNodes(t *testing.T) {
 		listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", ports[i]))
 		require.NoError(t, err)
 		config := Config{}
-		config.Raft.StreamLayer = NewStreamLayer(listener)
+		config.Raft.StreamLayer = NewStreamLayer(listener, nil, nil)
 		config.Raft.LocalID = raft.ServerID(strconv.Itoa(i))
 		// shortening the default Raft timeout configs so that Raft elects the leader quickly
 		config.Raft.HeartbeatTimeout = 50 * time.Millisecond

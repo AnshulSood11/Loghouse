@@ -2,6 +2,7 @@ package log
 
 import (
 	"bytes"
+	"crypto/tls"
 	"fmt"
 	"github.com/hashicorp/raft"
 	"net"
@@ -22,12 +23,17 @@ type Config struct {
 }
 
 type StreamLayer struct {
-	listener net.Listener
+	listener        net.Listener
+	serverTLSConfig *tls.Config
+	peerTLSConfig   *tls.Config
 }
 
-func NewStreamLayer(listener net.Listener) *StreamLayer {
+func NewStreamLayer(listener net.Listener,
+	serverTLSConfig, peerTLSConfig *tls.Config) *StreamLayer {
 	return &StreamLayer{
-		listener: listener,
+		listener:        listener,
+		serverTLSConfig: serverTLSConfig,
+		peerTLSConfig:   peerTLSConfig,
 	}
 }
 
@@ -48,6 +54,10 @@ func (s StreamLayer) Dial(address raft.ServerAddress,
 	if err != nil {
 		return nil, err
 	}
+	if s.peerTLSConfig != nil {
+		// making a TLS client-side connection
+		return tls.Client(conn, s.peerTLSConfig), nil
+	}
 	return conn, nil
 }
 
@@ -66,6 +76,9 @@ func (s StreamLayer) Accept() (net.Conn, error) {
 	}
 	if bytes.Compare([]byte{byte(RaftRPC)}, b) != 0 {
 		return nil, fmt.Errorf("not a raft rpc")
+	}
+	if s.serverTLSConfig != nil {
+		return tls.Server(conn, s.serverTLSConfig), nil
 	}
 	return conn, nil
 }

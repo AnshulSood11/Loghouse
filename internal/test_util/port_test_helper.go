@@ -1,9 +1,12 @@
-package util
+package test_util
 
-import "net"
+import (
+	"math/rand/v2"
+	"net"
+)
 
 func GetFreePorts(n int) (ports []int) {
-	port := 10000
+	port := rand.IntN(65000) + 1000
 	for len(ports) < n {
 		port++
 		ln, err := listen(port)

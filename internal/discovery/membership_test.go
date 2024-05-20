@@ -2,7 +2,7 @@ package discovery
 
 import (
 	"fmt"
-	"github.com/anshulsood11/loghouse/internal/util"
+	"github.com/anshulsood11/loghouse/internal/test_util"
 	"github.com/hashicorp/serf/serf"
 	"github.com/stretchr/testify/require"
 	"testing"
@@ -30,7 +30,7 @@ func TestMembership(t *testing.T) {
 
 func setupMember(t *testing.T, members []*Membership) ([]*Membership, *handler) {
 	id := len(members)
-	ports := util.GetFreePorts(1)
+	ports := test_util.GetFreePorts(1)
 	addr := fmt.Sprintf("%s:%d", "127.0.0.1", ports[0])
 	tags := map[string]string{
 		"rpc_addr": addr,

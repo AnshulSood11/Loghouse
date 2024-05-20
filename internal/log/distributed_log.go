@@ -144,6 +144,7 @@ func (l *DistributedLog) Append(record *api.Record) (uint64, error) {
 	return res.(*api.ProduceResponse).Offset, nil
 }
 
+// This must be run on the leader else it will fail
 func (l *DistributedLog) apply(reqType RequestType, req proto.Message) (
 	interface{},
 	error,
@@ -184,6 +185,9 @@ func (l *DistributedLog) Read(offset uint64) (*api.Record, error) {
 // the leader has more servers to communicate with to reach a majority. This must
 // be run on the leader, or it will fail
 func (l *DistributedLog) Join(id, addr string) error {
+	if leader := l.raft.VerifyLeader(); leader.Error() != nil {
+		return nil
+	}
 	configFuture := l.raft.GetConfiguration()
 	if err := configFuture.Error(); err != nil {
 		return err
@@ -214,6 +218,9 @@ func (l *DistributedLog) Join(id, addr string) error {
 // Leave removes the server from the cluster. Removing the leader will
 // trigger a new election.
 func (l *DistributedLog) Leave(id string) error {
+	if leader := l.raft.VerifyLeader(); leader.Error() != nil {
+		return nil
+	}
 	removeFuture := l.raft.RemoveServer(raft.ServerID(id), 0, 0)
 	return removeFuture.Error()
 }
@@ -224,15 +231,16 @@ func (l *DistributedLog) WaitForLeader(timeout time.Duration) error {
 	timeoutCh := time.After(timeout)
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
-	select {
-	case <-timeoutCh:
-		return fmt.Errorf("timed out")
-	case <-ticker.C:
-		if _, currLeaderID := l.raft.LeaderWithID(); currLeaderID != "" {
-			return nil
+	for {
+		select {
+		case <-timeoutCh:
+			return fmt.Errorf("timed out")
+		case <-ticker.C:
+			if _, currLeaderID := l.raft.LeaderWithID(); currLeaderID != "" {
+				return nil
+			}
 		}
 	}
-	return nil
 }
 
 func (l *DistributedLog) Close() error {
