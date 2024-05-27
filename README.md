@@ -73,7 +73,7 @@ availability, we need to ensure that the log written to one node get copied or r
 to other nodes as well.
 
 We might easily implement a replicator by making each node subscribe to other nodes using
-the [ConsumeStream](internal/server/server.go#L120) rpc. However, this will
+the [ConsumeStream](internal/server/server.go#L155) rpc. However, this will
 cause an infinite replication of each log unless we introduce some kind of coordinator
 which will keep a track of each log's offset, ensure that all nodes replicate that log
 at the same offset exactly once (form consensus on the log's offset) and prevent infinite
@@ -90,6 +90,9 @@ Membership and distributed_log are stitched together in [agent.go](internal/agen
 Agent is the starting point of the service and will set up everything - distributed log, 
 grpc server, membership handling and authorization.
 
+This is a single-writer, multiple-reader distributed service and the leader server is the
+only server that can append to the log.
+
 ### Encryption, Authentication and Authorization
 
 Client-server connection is authenticated using mTLS. To generate the certificates execute
@@ -102,3 +105,13 @@ Authorization is implemented using ACLs. [Casbin](https://github.com/casbin/casb
 provide the ACL functionality. In [authorizer.go](internal/auth/authorizer.go) we set up Casbin
 to enforce the policies defined in [policy.csv](resources/policy.csv) as per the model: [model.conf](resources/model.conf).
 Authorization takes place during Produce/Consume RPCs in [server.go](internal/server/server.go).
+
+
+### Load Balancing
+
+Client-side loadbalancing is used. gRPC provides a way to do this via resolvers and pickers.
+[resolver.go](internal/loadbalance/resolver.go) fetches the server addresses from raft config
+and updates the client connection with the list of addresses. [picker.go](internal/loadbalance/picker.go)
+handles the RPC balancing logic by picking a server from the servers discovered by the resolver.
+Depending on the rpc name, Produce requests are routed to the leader and Consume to one of 
+the followers in a round-robin manner.

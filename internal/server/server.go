@@ -2,7 +2,7 @@ package server
 
 import (
 	context "context"
-	logv1 "github.com/anshulsood11/loghouse/api/v1"
+	api "github.com/anshulsood11/loghouse/api/v1"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
@@ -25,17 +25,22 @@ CommitLog interface for Dependency Inversion so that the service is not tied
 to a specific log implementation.
 */
 type CommitLog interface {
-	Append(*logv1.Record) (uint64, error)
-	Read(uint64) (*logv1.Record, error)
+	Append(*api.Record) (uint64, error)
+	Read(uint64) (*api.Record, error)
 }
 
 type Authorizer interface {
 	Authorize(subject, object, action string) error
 }
 
+type ServersFetcher interface {
+	GetServers() ([]*api.Server, error)
+}
+
 type Config struct {
-	CommitLog  CommitLog
-	Authorizer Authorizer
+	CommitLog      CommitLog
+	Authorizer     Authorizer
+	ServersFetcher ServersFetcher
 }
 
 const (
@@ -44,10 +49,10 @@ const (
 	consumeAction  = "consume"
 )
 
-var _ logv1.LogServer = (*grpcServer)(nil)
+var _ api.LogServer = (*grpcServer)(nil)
 
 type grpcServer struct {
-	logv1.UnimplementedLogServer
+	api.UnimplementedLogServer
 	*Config
 }
 
@@ -82,12 +87,12 @@ func NewGRPCServer(config *Config, grpcOpts ...grpc.ServerOption) (*grpc.Server,
 	srv := &grpcServer{
 		Config: config,
 	}
-	logv1.RegisterLogServer(gsrvr, srv)
+	api.RegisterLogServer(gsrvr, srv)
 	return gsrvr, nil
 }
 
-func (s *grpcServer) Produce(ctx context.Context, req *logv1.ProduceRequest) (
-	*logv1.ProduceResponse, error) {
+func (s *grpcServer) Produce(ctx context.Context, req *api.ProduceRequest) (
+	*api.ProduceResponse, error) {
 	if err := s.Authorizer.Authorize(subject(ctx), objectWildcard, produceAction); err != nil {
 		return nil, err
 	}
@@ -95,11 +100,11 @@ func (s *grpcServer) Produce(ctx context.Context, req *logv1.ProduceRequest) (
 	if err != nil {
 		return nil, err
 	}
-	return &logv1.ProduceResponse{Offset: offset}, nil
+	return &api.ProduceResponse{Offset: offset}, nil
 }
 
-func (s *grpcServer) Consume(ctx context.Context, req *logv1.ConsumeRequest) (
-	*logv1.ConsumeResponse, error) {
+func (s *grpcServer) Consume(ctx context.Context, req *api.ConsumeRequest) (
+	*api.ConsumeResponse, error) {
 	if err := s.Authorizer.Authorize(subject(ctx), objectWildcard, consumeAction); err != nil {
 		return nil, err
 	}
@@ -107,7 +112,16 @@ func (s *grpcServer) Consume(ctx context.Context, req *logv1.ConsumeRequest) (
 	if err != nil {
 		return nil, err
 	}
-	return &logv1.ConsumeResponse{Record: record}, nil
+	return &api.ConsumeResponse{Record: record}, nil
+}
+
+func (s *grpcServer) GetServers(ctx context.Context, req *api.GetServersRequest) (
+	*api.GetServersResponse, error) {
+	servers, err := s.ServersFetcher.GetServers()
+	if err != nil {
+		return nil, err
+	}
+	return &api.GetServersResponse{Servers: servers}, nil
 }
 
 /*
@@ -115,7 +129,7 @@ ProduceStream implements a bidirectional streaming
 RPC so the client can stream data into the server’s log and the server can tell
 the client whether each request succeeded.
 */
-func (s *grpcServer) ProduceStream(stream logv1.Log_ProduceStreamServer) error {
+func (s *grpcServer) ProduceStream(stream api.Log_ProduceStreamServer) error {
 	for {
 		req, err := stream.Recv()
 		if err != nil {
@@ -138,7 +152,7 @@ will stream every record that follows—even records that aren’t in the log ye
 When the server reaches the end of the log, the server will wait until someone
 appends a record to the log and then continue streaming records to the client.
 */
-func (s *grpcServer) ConsumeStream(req *logv1.ConsumeRequest, stream logv1.Log_ConsumeStreamServer) error {
+func (s *grpcServer) ConsumeStream(req *api.ConsumeRequest, stream api.Log_ConsumeStreamServer) error {
 	for {
 		select {
 		case <-stream.Context().Done():
@@ -147,7 +161,7 @@ func (s *grpcServer) ConsumeStream(req *logv1.ConsumeRequest, stream logv1.Log_C
 			res, err := s.Consume(stream.Context(), req)
 			switch err.(type) {
 			case nil:
-			case logv1.ErrOffsetOutOfRange:
+			case api.ErrOffsetOutOfRange:
 				continue
 			default:
 				return err

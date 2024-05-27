@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	api "github.com/anshulsood11/loghouse/api/v1"
+	"github.com/anshulsood11/loghouse/internal/loadbalance"
 	"github.com/anshulsood11/loghouse/internal/test_util"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -84,6 +85,10 @@ func TestAgent(t *testing.T) {
 		},
 	)
 	require.NoError(t, err)
+
+	// Wait for the produced message to get replicated to follower
+	// server else the Consume request will fail
+	time.Sleep(3 * time.Second)
 	consumeResponse, err := leaderClient.Consume(
 		context.Background(),
 		&api.ConsumeRequest{
@@ -124,7 +129,7 @@ func client(t *testing.T, agent *Agent, tlsConfig *tls.Config) api.LogClient {
 	opts := []grpc.DialOption{grpc.WithTransportCredentials(tlsCreds)}
 	rpcAddr, err := Config.RPCAddr(agent.Config)
 	require.NoError(t, err)
-	conn, err := grpc.Dial(fmt.Sprintf("%s", rpcAddr), opts...)
+	conn, err := grpc.Dial(fmt.Sprintf("%s:///%s", loadbalance.Name, rpcAddr), opts...)
 	require.NoError(t, err)
 	client := api.NewLogClient(conn)
 	return client
