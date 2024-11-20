@@ -9,15 +9,15 @@ import (
 
 var (
 	enc = binary.BigEndian // enc defines the encoding that we persist record
-	// sizes and index entries in
+	// sizes and Index entries in
 )
 
 const (
-	lenWidth = 8 //  lenWidth defines the number of bytes used to store the
+	lenWidth = 8 //  lenWidth defines the number of bytes used to Store the
 	// record’s length.
 )
 
-type store struct {
+type Store struct {
 	*os.File
 	mu   sync.Mutex
 	buf  *bufio.Writer
@@ -26,17 +26,17 @@ type store struct {
 
 /*
 The newStore(*os.File) function creates a
-store for the given file. The function calls os.Stat(name string) to get the file’s
-current size, in case we’re re-creating the store from a file that has existing
+Store for the given file. The function calls os.Stat(name string) to get the file’s
+current size, in case we’re re-creating the Store from a file that has existing
 data, which would happen if, for example, our service had restarted.
 */
-func newStore(f *os.File) (*store, error) {
+func newStore(f *os.File) (*Store, error) {
 	fi, err := os.Stat(f.Name())
 	if err != nil {
 		return nil, err
 	}
 	size := uint64(fi.Size())
-	return &store{
+	return &Store{
 		File: f,
 		size: size,
 		buf:  bufio.NewWriter(f),
@@ -44,15 +44,15 @@ func newStore(f *os.File) (*store, error) {
 }
 
 /*
-Append persists the given bytes to the store. We write the length of the
+Append persists the given bytes to the Store. We write the length of the
 record so that, when we read the record, we know how many bytes to read.
 
 We write to the buffered writer instead of directly to the file to reduce the
 number of system calls and improve performance. Then we return the number of bytes
-written and the position where the store holds the record in its file. The segment
-will use this position when it creates an associated index entry for this record.
+written and the position where the Store holds the record in its file. The Segment
+will use this position when it creates an associated Index entry for this record.
 */
-func (s *store) Append(p []byte) (n uint64, pos uint64, err error) {
+func (s *Store) Append(p []byte) (n uint64, pos uint64, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	pos = s.size
@@ -71,7 +71,7 @@ func (s *store) Append(p []byte) (n uint64, pos uint64, err error) {
 /*
 Read returns the record stored at the given position.
 */
-func (s *store) Read(pos uint64) ([]byte, error) {
+func (s *Store) Read(pos uint64) ([]byte, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -96,9 +96,9 @@ func (s *store) Read(pos uint64) ([]byte, error) {
 
 /*
 ReadAt reads len(p) bytes into p beginning at the off offset in the
-store’s file. It implements io.ReaderAt on the store type.
+Store’s file. It implements io.ReaderAt on the Store type.
 */
-func (s *store) ReadAt(p []byte, off int64) (int, error) {
+func (s *Store) ReadAt(p []byte, off int64) (int, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := s.buf.Flush(); err != nil {
@@ -110,7 +110,7 @@ func (s *store) ReadAt(p []byte, off int64) (int, error) {
 /*
 Close persists any buffered data before closing the file.
 */
-func (s *store) Close() error {
+func (s *Store) Close() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	err := s.buf.Flush()

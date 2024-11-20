@@ -1,0 +1,102 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "loghouse.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels: {{ include "loghouse.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels: {{ include "loghouse.selectorLabels" . | nindent 6 }}
+  serviceName: {{ include "loghouse.fullname" . }}
+  replicas: {{ .Values.replicas }}
+  template:
+    metadata:
+      name: {{ include "loghouse.fullname" . }}
+      labels: {{ include "loghouse.labels" . | nindent 8}}
+    spec:
+      initContainers:
+        - name: {{ include "loghouse.fullname" . }}-config-init
+          image: busybox
+          imagePullPolicy: Always
+          env:
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+          command:
+            - /bin/sh
+            - -c
+            - |-
+              ID=$(echo $HOSTNAME | rev | cut -d- -f1 | rev)
+              mkdir /var/run/loghouse
+              cat > /var/run/loghouse/config.yaml <<EOD
+              data-dir: /var/run/loghouse/data
+              rpc-port: {{.Values.rpcPort}}
+              bind-addr: "$POD_IP:{{.Values.serfPort}}"
+              bootstrap: $([ $ID = 0 ] && echo true || echo false)
+              $([ $ID != 0 ] && echo 'start-join-addrs: "loghouse-0.loghouse:{{.Values.serfPort}}"')
+              acl-model-file: /go/src/loghouse/resources/model.conf
+              acl-policy-file: /go/src/loghouse/resources/policy.csv
+              server-tls-cert-file: /go/src/loghouse/resources/server.pem
+              server-tls-key-file: /go/src/loghouse/resources/server-key.pem
+              server-tls-ca-file: /go/src/loghouse/resources/ca.pem
+              peer-tls-cert-file: /go/src/loghouse/resources/root-client.pem
+              peer-tls-key-file: /go/src/loghouse/resources/root-client-key.pem
+              peer-tls-ca-file: /go/src/loghouse/resources/ca.pem
+              server-name: $POD_IP
+              EOD
+              echo "created /var/run/loghouse/config.yaml with contents: "
+              cat /var/run/loghouse/config.yaml
+          volumeMounts:
+            - name: datadir
+              mountPath: /var/run/loghouse
+      containers:
+        - name: {{ include "loghouse.fullname" . }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          ports:
+            - containerPort: {{ .Values.rpcPort }}
+              name: rpc
+            - containerPort: {{ .Values.serfPort }}
+              name: serf
+          args: ["--config-file=/var/run/loghouse/config.yaml"]
+          volumeMounts:
+            - name: datadir
+              mountPath: /var/run/loghouse
+          env:
+            - name: CONFIG_DIR
+              value: "/go/src/loghouse/resources/"
+            - name: GRPC_GO_LOG_VERBOSITY_LEVEL
+              value: "99"
+            - name: GRPC_GO_LOG_SEVERITY_LEVEL
+              value: "info"
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - |-
+                  /go/bin/health_check -addr=$POD_IP:{{ .Values.rpcPort }}
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - |-
+                  /go/bin/health_check -addr=$POD_IP:{{ .Values.rpcPort }}
+            initialDelaySeconds: 10
+            periodSeconds: 30
+
+  volumeClaimTemplates:
+    - metadata:
+        name: datadir
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: {{ .Values.storage }}

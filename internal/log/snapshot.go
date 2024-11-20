@@ -5,14 +5,14 @@ import (
 	"io"
 )
 
-type snapshot struct {
+type Snapshot struct {
 	reader io.Reader
 }
 
-var _ raft.FSMSnapshot = (*snapshot)(nil)
+var _ raft.FSMSnapshot = (*Snapshot)(nil)
 
 // Persist is called by Raft to write its state to some sink like in-memory, a file, S3 etc.
-func (s snapshot) Persist(sink raft.SnapshotSink) error {
+func (s Snapshot) Persist(sink raft.SnapshotSink) error {
 	if _, err := io.Copy(sink, s.reader); err != nil {
 		_ = sink.Cancel()
 		return err
@@ -20,6 +20,6 @@ func (s snapshot) Persist(sink raft.SnapshotSink) error {
 	return sink.Close()
 }
 
-// Release is called by Raft when it’s finished taking the snapshot
-func (s snapshot) Release() {
+// Release is called by Raft when it’s finished taking the Snapshot
+func (s Snapshot) Release() {
 }

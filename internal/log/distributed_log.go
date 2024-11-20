@@ -13,9 +13,10 @@ import (
 )
 
 type DistributedLog struct {
-	config Config
-	log    *Log
-	raft   *raft.Raft
+	config  Config
+	log     *Log
+	raft    *raft.Raft
+	raftLog *logStore
 }
 
 func NewDistributedLog(dataDir string, config Config) (*DistributedLog, error) {
@@ -44,17 +45,18 @@ func (l *DistributedLog) setupLog(dataDir string) error {
 }
 
 func (l *DistributedLog) setupRaft(dataDir string) error {
+	var err error
 	// Finite-state machine that applies the commands given
-	fsm := &fsm{log: l.log}
+	fsm := &FSM{log: l.log}
 	logDir := filepath.Join(dataDir, "raft", "log")
-	if err := os.MkdirAll(logDir, 0755); err != nil {
+	if err = os.MkdirAll(logDir, 0755); err != nil {
 		return err
 	}
 	logConfig := l.config
 	logConfig.Segment.InitialOffset = 1
 	// Log Store where Raft stores the given commands. Using our own log implementation.
 	// Initial Offset is set to 1 as it is required by Raft.
-	logStore, err := newLogStore(logDir, logConfig)
+	l.raftLog, err = newLogStore(logDir, logConfig)
 	if err != nil {
 		return err
 	}
@@ -103,7 +105,7 @@ func (l *DistributedLog) setupRaft(dataDir string) error {
 	l.raft, err = raft.NewRaft(
 		config,
 		fsm,
-		logStore,
+		l.raftLog,
 		stableStore,
 		snapshotStore,
 		transport,
@@ -112,7 +114,7 @@ func (l *DistributedLog) setupRaft(dataDir string) error {
 		return err
 	}
 	hasState, err := raft.HasExistingState(
-		logStore,
+		l.raftLog,
 		stableStore,
 		snapshotStore,
 	)
@@ -125,7 +127,7 @@ func (l *DistributedLog) setupRaft(dataDir string) error {
 		config := raft.Configuration{
 			Servers: []raft.Server{{
 				ID:      config.LocalID,
-				Address: transport.LocalAddr(),
+				Address: raft.ServerAddress(l.config.Raft.BindAddr),
 			}},
 		}
 		err = l.raft.BootstrapCluster(config).Error()
@@ -246,6 +248,10 @@ func (l *DistributedLog) WaitForLeader(timeout time.Duration) error {
 func (l *DistributedLog) Close() error {
 	f := l.raft.Shutdown()
 	if err := f.Error(); err != nil {
+		return err
+	}
+	// Close raft logStore
+	if err := l.raftLog.Log.Close(); err != nil {
 		return err
 	}
 	return l.log.Close()

@@ -4,8 +4,8 @@ import (
 	"context"
 	"flag"
 	api "github.com/anshulsood11/loghouse/api/v1"
-	"github.com/anshulsood11/loghouse/internal/auth"
 	"github.com/anshulsood11/loghouse/internal/log"
+	"github.com/anshulsood11/loghouse/internal/security"
 	"github.com/anshulsood11/loghouse/internal/test_util"
 	"github.com/stretchr/testify/require"
 	"go.opencensus.io/examples/exporter"
@@ -80,7 +80,7 @@ func setupTest(t *testing.T) (
 	var nobodyConn *grpc.ClientConn
 	nobodyConn, nobodyClient, _ = newClient(t, l.Addr().String(), test_util.NobodyClientCertFile, test_util.NobodyClientKeyFile)
 
-	serverTLSConfig, err := test_util.SetupTLSConfig(test_util.TLSConfig{
+	serverTLSConfig, err := security.SetupTLSConfig(security.TLSConfig{
 		CertFile:      test_util.ServerCertFile,
 		KeyFile:       test_util.ServerKeyFile,
 		CAFile:        test_util.CAFile,
@@ -94,7 +94,7 @@ func setupTest(t *testing.T) (
 	clog, err := log.NewLog(dir, log.Config{})
 	require.NoError(t, err)
 
-	authorizer := auth.NewAuthorizer(test_util.ACLModelFile, test_util.ACLPolicyFile)
+	authorizer := security.NewAuthorizer(test_util.ACLModelFile, test_util.ACLPolicyFile)
 	cfg = &Config{
 		CommitLog:  clog,
 		Authorizer: authorizer,
@@ -142,7 +142,7 @@ func newClient(t *testing.T, serverAddress, crtPath, keyPath string) (
 	api.LogClient,
 	[]grpc.DialOption,
 ) {
-	clientTLSConfig, err := test_util.SetupTLSConfig(test_util.TLSConfig{
+	clientTLSConfig, err := security.SetupTLSConfig(security.TLSConfig{
 		CertFile: crtPath,
 		KeyFile:  keyPath,
 		CAFile:   test_util.CAFile,

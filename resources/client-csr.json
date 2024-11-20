@@ -1,17 +1,19 @@
 {
-  "CN": "client-id",
-  "hosts": [],
+  "CN": "loghouse.test.client.internal",
+  "hosts": [
+    ""
+  ],
   "key": {
     "algo": "rsa",
     "size": 2048
   },
   "names": [
     {
-      "C": "US",
-      "L": "San Francisco",
-      "O": "Example Company, LLC",
-      "OU": "Operations",
-      "ST": "California"
+      "C": "IN",
+      "L": "Bangalore",
+      "O": "Loghouse Pvt Ltd",
+      "OU": "Client Operations",
+      "ST": "Karnataka"
     }
   ]
 }

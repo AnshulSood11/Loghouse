@@ -20,7 +20,7 @@ func TestLog(t *testing.T) {
 		"truncate":                          testTruncate,
 	} {
 		t.Run(scenario, func(t *testing.T) {
-			dir, err := ioutil.TempDir("", "store-test")
+			dir, err := ioutil.TempDir("", "Store-test")
 			require.NoError(t, err)
 			defer os.RemoveAll(dir)
 			c := Config{}

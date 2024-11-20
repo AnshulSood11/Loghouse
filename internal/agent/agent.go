@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"crypto/tls"
 	"fmt"
-	"github.com/anshulsood11/loghouse/internal/auth"
 	"github.com/anshulsood11/loghouse/internal/discovery"
 	"github.com/anshulsood11/loghouse/internal/log"
+	"github.com/anshulsood11/loghouse/internal/security"
 	"github.com/anshulsood11/loghouse/internal/server"
 	"github.com/hashicorp/raft"
 	"github.com/soheilhy/cmux"
@@ -30,6 +30,7 @@ type Agent struct {
 	shutdown     bool
 	shutdowns    chan struct{}
 	shutdownLock sync.Mutex
+	logger       *zap.Logger
 }
 
 type Config struct {
@@ -91,11 +92,17 @@ func (a *Agent) setupLogger() error {
 		return err
 	}
 	zap.ReplaceGlobals(logger)
+	a.logger = zap.L().Named("agent")
 	return nil
 }
 
 func (a *Agent) setupMux() error {
-	rpcAddr := fmt.Sprintf(":%d", a.Config.RPCPort)
+	addr, err := net.ResolveTCPAddr("tcp", a.Config.BindAddr)
+	if err != nil {
+		return err
+	}
+	rpcAddr := fmt.Sprintf("%s:%d", addr.IP.String(), a.Config.RPCPort)
+	//rpcAddr := fmt.Sprintf(":%d", a.Config.RPCPort)
 	listener, err := net.Listen("tcp", rpcAddr)
 	if err != nil {
 		return err
@@ -106,10 +113,14 @@ func (a *Agent) setupMux() error {
 
 func (a *Agent) setupLog() error {
 	raftListener := a.mux.Match(func(reader io.Reader) bool {
+		a.logger.Info("mux matcher called")
 		b := make([]byte, 1)
 		if _, err := reader.Read(b); err != nil {
+			a.logger.Error("Error while reading byte in mux", zap.Error(err))
 			return false
 		}
+		a.logger.Info("mux matcher returning", zap.Bool(
+			"returned value", bytes.Compare(b, []byte{byte(log.RaftRPC)}) == 0))
 		return bytes.Compare(b, []byte{byte(log.RaftRPC)}) == 0
 	})
 	logConfig := log.Config{}
@@ -118,21 +129,26 @@ func (a *Agent) setupLog() error {
 		a.Config.ServerTLSConfig,
 		a.Config.PeerTLSConfig,
 	)
+	rpcAddr, err := a.Config.RPCAddr()
+	if err != nil {
+		return err
+	}
+	logConfig.Raft.BindAddr = rpcAddr
 	logConfig.Raft.LocalID = raft.ServerID(a.Config.NodeName)
 	logConfig.Raft.Bootstrap = a.Config.Bootstrap
-	var err error
+	logConfig.Raft.CommitTimeout = 1000 * time.Millisecond
 	a.log, err = log.NewDistributedLog(a.Config.DataDir, logConfig)
 	if err != nil {
 		return err
 	}
 	if a.Config.Bootstrap {
-		err = a.log.WaitForLeader(3 * time.Second)
+		err = a.log.WaitForLeader(30 * time.Second)
 	}
 	return err
 }
 
 func (a *Agent) setupServer() error {
-	authorizer := auth.NewAuthorizer(a.Config.ACLModelFile, a.Config.ACLPolicyFile)
+	authorizer := security.NewAuthorizer(a.Config.ACLModelFile, a.Config.ACLPolicyFile)
 	serverConfig := &server.Config{CommitLog: a.log, Authorizer: authorizer, ServersFetcher: a.log}
 	var opts []grpc.ServerOption
 	if a.Config.ServerTLSConfig != nil {
@@ -144,7 +160,10 @@ func (a *Agent) setupServer() error {
 	if err != nil {
 		return err
 	}
-	grpcListener := a.mux.Match(cmux.Any())
+	grpcListener := a.mux.Match(func(r io.Reader) bool {
+		a.logger.Info("mux matcher called for grpcListener")
+		return true
+	})
 	go func() {
 		if err := a.server.Serve(grpcListener); err != nil {
 			_ = a.Shutdown()
