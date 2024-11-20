@@ -8,23 +8,23 @@ import (
 	"path"
 )
 
-type segment struct {
-	store                  *store
-	index                  *index
+type Segment struct {
+	store                  *Store
+	index                  *Index
 	nextOffset, baseOffset uint64 //next and base offsets to know what offset to append new
 	// records under and to calculate the relative offsets for the index entries
 	config Config
 }
 
-// The log calls newSegment() when it needs to add a new segment, such as when
-// the current active segment hits its max size.
-func newSegment(dir string, baseOffset uint64, c Config) (*segment, error) {
-	s := &segment{
+// The log calls newSegment() when it needs to add a new Segment, such as when
+// the current active Segment hits its max size.
+func newSegment(dir string, baseOffset uint64, c Config) (*Segment, error) {
+	s := &Segment{
 		baseOffset: baseOffset,
 		config:     c,
 	}
 	var err error
-	// Next, we open the store and index files
+	// Next, we open the Store and Index files
 	storeFile, err := os.OpenFile(
 		path.Join(dir, fmt.Sprintf("%d%s", baseOffset, ".store")),
 		os.O_RDWR|
@@ -48,24 +48,24 @@ func newSegment(dir string, baseOffset uint64, c Config) (*segment, error) {
 		return nil, err
 	}
 	if off, _, err := s.index.Read(-1); err != nil {
-		// If index is empty, then the next record appended to the segment would be the
-		// first record and its offset would be the segment’s base offset.
+		// If Index is empty, then the next record appended to the Segment would be the
+		// first record and its offset would be the Segment’s base offset.
 		s.nextOffset = baseOffset
 	} else {
-		// If the index has at least one entry, then the offset of the next record
-		// written should take the offset at the end of the segment
+		// If the Index has at least one entry, then the offset of the next record
+		// written should take the offset at the end of the Segment
 		s.nextOffset = baseOffset + uint64(off) + 1
 	}
 	return s, nil
 }
 
 /*
-Append writes the record to the segment and returns the newly appended
-record’s offset. The log returns the offset to the API response. The segment
-appends a record in a two-step process: it appends the data to the store and
-then adds an index entry.
+Append writes the record to the Segment and returns the newly appended
+record’s offset. The log returns the offset to the API response. The Segment
+appends a record in a two-step process: it appends the data to the Store and
+then adds an Index entry.
 */
-func (s *segment) Append(record *api.Record) (offset uint64, err error) {
+func (s *Segment) Append(record *api.Record) (offset uint64, err error) {
 	cur := s.nextOffset
 	record.Offset = cur
 	p, err := proto.Marshal(record)
@@ -77,7 +77,7 @@ func (s *segment) Append(record *api.Record) (offset uint64, err error) {
 		return 0, err
 	}
 	if err = s.index.Write(
-		// index offsets are relative to base offset
+		// Index offsets are relative to base offset
 		uint32(s.nextOffset-s.baseOffset),
 		pos,
 	); err != nil {
@@ -90,12 +90,12 @@ func (s *segment) Append(record *api.Record) (offset uint64, err error) {
 
 /*
 Read returns the record for the given offset. Similar to writes, to read
-a record the segment must first translate the absolute index into a relative
-offset and get the associated index entry. Once it has the index entry, the
-segment can go straight to the record’s position in the store and read the
+a record the Segment must first translate the absolute Index into a relative
+offset and get the associated Index entry. Once it has the Index entry, the
+Segment can go straight to the record’s position in the Store and read the
 proper amount of data.
 */
-func (s *segment) Read(off uint64) (*api.Record, error) {
+func (s *Segment) Read(off uint64) (*api.Record, error) {
 	_, pos, err := s.index.Read(int64(off - s.baseOffset))
 	if err != nil {
 		return nil, err
@@ -110,21 +110,22 @@ func (s *segment) Read(off uint64) (*api.Record, error) {
 }
 
 /*
-IsMaxed returns whether the segment has reached its max size, either by
-writing too much to the store or the index. If you wrote a small number of
-long logs, then you’d hit the store bytes limit; if you wrote a lot of small
-logs, then you’d hit the index bytes limit. The log uses this method to know
-it needs to create a new segment.
+IsMaxed returns whether the Segment has reached its max size, either by
+writing too much to the Store or the Index. If you wrote a small number of
+long logs, then you’d hit the Store bytes limit; if you wrote a lot of small
+logs, then you’d hit the Index bytes limit. The log uses this method to know
+it needs to create a new Segment.
 */
-func (s *segment) IsMaxed() bool {
+func (s *Segment) IsMaxed() bool {
 	return s.store.size >= s.config.Segment.MaxStoreBytes ||
-		s.index.size >= s.config.Segment.MaxIndexBytes
+		s.index.size >= s.config.Segment.MaxIndexBytes ||
+		s.index.IsMaxed()
 }
 
 /*
-Remove closes the segment and removes the index and store files.
+Remove closes the Segment and removes the Index and Store files.
 */
-func (s *segment) Remove() error {
+func (s *Segment) Remove() error {
 	if err := s.Close(); err != nil {
 		return err
 	}
@@ -137,7 +138,7 @@ func (s *segment) Remove() error {
 	return nil
 }
 
-func (s *segment) Close() error {
+func (s *Segment) Close() error {
 	if err := s.index.Close(); err != nil {
 		return err
 	}

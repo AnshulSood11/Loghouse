@@ -29,7 +29,7 @@ func TestStoreAppendRead(t *testing.T) {
 	testRead(t, s)
 }
 
-func testAppend(t *testing.T, s *store) {
+func testAppend(t *testing.T, s *Store) {
 	t.Helper()
 	for i := uint64(1); i < 4; i++ {
 		n, pos, err := s.Append(write)
@@ -38,7 +38,7 @@ func testAppend(t *testing.T, s *store) {
 	}
 }
 
-func testRead(t *testing.T, s *store) {
+func testRead(t *testing.T, s *Store) {
 	t.Helper()
 	var pos uint64
 	for i := uint64(1); i < 4; i++ {
@@ -48,7 +48,7 @@ func testRead(t *testing.T, s *store) {
 		pos += width
 	}
 }
-func testReadAt(t *testing.T, s *store) {
+func testReadAt(t *testing.T, s *Store) {
 	t.Helper()
 	for i, off := uint64(1), int64(0); i < 4; i++ {
 		b := make([]byte, lenWidth)

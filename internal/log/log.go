@@ -14,10 +14,10 @@ import (
 
 type Log struct {
 	mu            sync.RWMutex //https://medium.com/bootdotdev/golang-mutexes-what-is-rwmutex-for-5360ab082626
-	Dir           string       // directory is where we store the segments
+	Dir           string       // directory is where we Store the segments
 	Config        Config
-	activeSegment *segment
-	segments      []*segment
+	activeSegment *Segment
+	segments      []*Segment
 }
 
 func NewLog(dir string, c Config) (*Log, error) {
@@ -59,7 +59,7 @@ func (l *Log) setup() error {
 		if err = l.newSegment(baseOffsets[i]); err != nil {
 			return err
 		}
-		// baseOffset contains dup for index and store, so we skip
+		// baseOffset contains dup for Index and Store, so we skip
 		// the dup
 		i++
 	}
@@ -74,8 +74,8 @@ func (l *Log) setup() error {
 }
 
 /*
-newSegment creates a new segment with the base offset supplied, appends that segment
-to the log’s slice of segments, and makes the new segment the active segment so that
+newSegment creates a new Segment with the base offset supplied, appends that Segment
+to the log’s slice of segments, and makes the new Segment the active Segment so that
 subsequent append calls write to it.
 */
 func (l *Log) newSegment(off uint64) error {
@@ -90,18 +90,25 @@ func (l *Log) newSegment(off uint64) error {
 
 /*
 Append appends a record to the log. We append the record to the
-active segment. Afterward, if the segment is at its max size (per the max size
-configs), then we make a new active segment.
+active Segment. Afterward, if the Segment is at its max size (per the max size
+configs), then we make a new active Segment.
 */
 func (l *Log) Append(record *api.Record) (uint64, error) {
-	l.mu.Lock()
-	defer l.mu.Unlock() // We can optimize this by making the locks per segment level
-	off, err := l.activeSegment.Append(record)
+	highestOffset, err := l.HighestOffset()
 	if err != nil {
 		return 0, err
 	}
+	l.mu.Lock()
+	defer l.mu.Unlock() // We can optimize this by making the locks per Segment level
 	if l.activeSegment.IsMaxed() {
-		err = l.newSegment(off + 1)
+		err = l.newSegment(highestOffset + 1)
+		if err != nil {
+			return 0, err
+		}
+	}
+	off, err := l.activeSegment.Append(record)
+	if err != nil {
+		return 0, err
 	}
 	return off, err
 }
@@ -112,7 +119,7 @@ Read reads the record stored at the given offset
 func (l *Log) Read(off uint64) (*api.Record, error) {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
-	var s *segment
+	var s *Segment
 
 	leftPtr := 0
 	rightPtr := len(l.segments) - 1
@@ -194,7 +201,7 @@ by then and don’t need anymore.
 func (l *Log) Truncate(lowest uint64) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	var segments []*segment
+	var segments []*Segment
 	for _, s := range l.segments {
 		if s.nextOffset <= lowest+1 {
 			if err := s.Remove(); err != nil {
@@ -219,11 +226,11 @@ func (l *Log) Reader() io.Reader {
 	readers := make([]io.Reader, len(l.segments))
 	for i, segment := range l.segments {
 		/*
-			segment stores are wrapped by the originReader type for two reasons:
+			Segment stores are wrapped by the originReader type for two reasons:
 			First, to satisfy the io.Reader interface, so we can pass it
 			into the io.MultiReader() call.
 			Second, to ensure that we begin reading from the origin of the
-			store and read its entire file.
+			Store and read its entire file.
 		*/
 		readers[i] = &originReader{segment.store, 0}
 	}
@@ -232,7 +239,7 @@ func (l *Log) Reader() io.Reader {
 }
 
 type originReader struct {
-	*store
+	*Store
 	off int64
 }
 

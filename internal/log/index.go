@@ -12,20 +12,20 @@ var (
 	entWidth        = offWidth + posWidth
 )
 
-type index struct {
+type Index struct {
 	file *os.File
 	mmap gommap.MMap
 	size uint64
 }
 
 /*
-newIndex creates an index for the given file. We create the index and
+newIndex creates an Index for the given file. We create the Index and
 save the current size of the file, so we can track the amount of data in the
-index file as we add index entries. We grow the file to the max index size before
-memory-mapping the file and then return the created index to the caller.
+Index file as we add Index entries. We grow the file to the max Index size before
+memory-mapping the file and then return the created Index to the caller.
 */
-func newIndex(f *os.File, c Config) (*index, error) {
-	idx := &index{
+func newIndex(f *os.File, c Config) (*Index, error) {
+	idx := &Index{
 		file: f,
 	}
 	fi, err := os.Stat(f.Name())
@@ -52,7 +52,7 @@ file and that the persisted file has flushed its contents to stable storage. The
 it truncates the persisted file to the amount of data that’s actually in it and
 closes the file.
 */
-func (i *index) Close() error {
+func (i *Index) Close() error {
 	if err := i.mmap.Sync(gommap.MS_SYNC); err != nil {
 		return err
 	}
@@ -67,13 +67,13 @@ func (i *index) Close() error {
 
 /*
 Read takes in an offset and returns the associated record’s position in
-the store. The given offset is relative to the segment’s base offset; 0 is always
-the offset of the index’s first entry, 1 is the second entry, and so on. We use
+the Store. The given offset is relative to the Segment’s base offset; 0 is always
+the offset of the Index’s first entry, 1 is the second entry, and so on. We use
 relative offsets to reduce the size of the indexes by storing offsets as uint32s.
-If we used absolute offsets, we’d have to store the offsets as uint64s and
+If we used absolute offsets, we’d have to Store the offsets as uint64s and
 require four more bytes for each entry.
 */
-func (i *index) Read(in int64) (out uint32, pos uint64, err error) {
+func (i *Index) Read(in int64) (out uint32, pos uint64, err error) {
 	if i.size == 0 {
 		return 0, 0, io.EOF
 	}
@@ -92,13 +92,13 @@ func (i *index) Read(in int64) (out uint32, pos uint64, err error) {
 }
 
 /*
-Write appends the given offset and position to the index.
+Write appends the given offset and position to the Index.
 First, we validate that we have space to write the entry. If there’s space, we
 then encode the offset and position and write them to the memory-mapped
 file. Then we increment the position where the next write will go.
 */
-func (i *index) Write(off uint32, pos uint64) error {
-	if uint64(len(i.mmap)) < i.size+entWidth {
+func (i *Index) Write(off uint32, pos uint64) error {
+	if i.IsMaxed() {
 		return io.EOF
 	}
 	enc.PutUint32(i.mmap[i.size:i.size+offWidth], off)
@@ -107,6 +107,10 @@ func (i *index) Write(off uint32, pos uint64) error {
 	return nil
 }
 
-func (i *index) Name() string {
+func (i *Index) IsMaxed() bool {
+	return uint64(len(i.mmap)) < i.size+entWidth
+}
+
+func (i *Index) Name() string {
 	return i.file.Name()
 }

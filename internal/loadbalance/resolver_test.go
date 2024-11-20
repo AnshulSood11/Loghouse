@@ -2,6 +2,7 @@ package loadbalance
 
 import (
 	api "github.com/anshulsood11/loghouse/api/v1"
+	"github.com/anshulsood11/loghouse/internal/security"
 	"github.com/anshulsood11/loghouse/internal/server"
 	"github.com/anshulsood11/loghouse/internal/test_util"
 	"github.com/stretchr/testify/require"
@@ -19,7 +20,7 @@ func TestResolver(t *testing.T) {
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 
-	tlsConfig, err := test_util.SetupTLSConfig(test_util.TLSConfig{
+	tlsConfig, err := security.SetupTLSConfig(security.TLSConfig{
 		CertFile:      test_util.ServerCertFile,
 		KeyFile:       test_util.ServerKeyFile,
 		CAFile:        test_util.CAFile,
@@ -37,7 +38,7 @@ func TestResolver(t *testing.T) {
 	go srv.Serve(l)
 
 	conn := &clientConn{}
-	tlsConfig, err = test_util.SetupTLSConfig(test_util.TLSConfig{
+	tlsConfig, err = security.SetupTLSConfig(security.TLSConfig{
 		CertFile:      test_util.RootClientCertFile,
 		KeyFile:       test_util.RootClientKeyFile,
 		CAFile:        test_util.CAFile,

@@ -10,7 +10,7 @@ import (
 )
 
 func TestSegment(t *testing.T) {
-	dir, _ := ioutil.TempDir("", "segment-test")
+	dir, _ := ioutil.TempDir("", "Segment-test")
 	defer os.RemoveAll(dir)
 	want := &api.Record{Value: []byte("hello world")}
 	c := Config{}
@@ -30,15 +30,15 @@ func TestSegment(t *testing.T) {
 	}
 	_, err = s.Append(want)
 	require.Equal(t, io.EOF, err)
-	// maxed index
+	// maxed Index
 	require.True(t, s.IsMaxed())
 	c.Segment.MaxStoreBytes = uint64(len(want.Value) * 3)
 	c.Segment.MaxIndexBytes = 1024
 	// Calling newSegment() twice with the same base offset and dir also checks that
-	// the function loads a segment’s state from the persisted index and log files.
+	// the function loads a Segment’s state from the persisted Index and log files.
 	s, err = newSegment(dir, 16, c)
 	require.NoError(t, err)
-	// maxed store
+	// maxed Store
 	require.True(t, s.IsMaxed())
 	err = s.Remove()
 	require.NoError(t, err)

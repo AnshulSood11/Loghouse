@@ -1,6 +1,7 @@
 package test_util
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 )
@@ -19,11 +20,13 @@ var (
 
 func configFile(fileName string) string {
 	if dir := os.Getenv("CONFIG_DIR"); dir != "" {
+		fmt.Println("Reading " + fileName + " from " + dir)
 		return filepath.Join(dir, fileName)
 	}
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		panic(err)
 	}
+	fmt.Println("Reading " + fileName + " from " + homeDir)
 	return filepath.Join(homeDir, ".loghouse", fileName)
 }

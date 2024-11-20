@@ -1,5 +1,5 @@
 {
-  "CN": "www.example.com",
+  "CN": "loghouse.test.server.internal",
   "hosts": [
     "127.0.0.1",
     "localhost"
@@ -10,11 +10,11 @@
   },
   "names": [
     {
-      "C": "US",
-      "L": "San Francisco",
-      "O": "Example Company, LLC",
-      "OU": "Operations",
-      "ST": "California"
+      "C": "IN",
+      "L": "Bangalore",
+      "O": "Loghouse Pvt Ltd",
+      "OU": "Server Operations",
+      "ST": "Karnataka"
     }
   ]
 }

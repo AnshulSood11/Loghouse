@@ -1,4 +1,4 @@
-package test_util
+package security
 
 import (
 	"crypto/tls"
@@ -41,6 +41,7 @@ func SetupTLSConfig(cfg TLSConfig) (*tls.Config, error) {
 		} else {
 			tlsConfig.RootCAs = ca
 		}
+		fmt.Println("SetupTLSConfig server-name " + cfg.ServerAddress)
 		tlsConfig.ServerName = cfg.ServerAddress
 	}
 	return tlsConfig, nil

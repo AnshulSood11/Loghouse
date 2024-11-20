@@ -6,6 +6,7 @@ import (
 	"fmt"
 	api "github.com/anshulsood11/loghouse/api/v1"
 	"github.com/anshulsood11/loghouse/internal/loadbalance"
+	"github.com/anshulsood11/loghouse/internal/security"
 	"github.com/anshulsood11/loghouse/internal/test_util"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -18,7 +19,7 @@ import (
 )
 
 func TestAgent(t *testing.T) {
-	serverTLSConfig, err := test_util.SetupTLSConfig(test_util.TLSConfig{
+	serverTLSConfig, err := security.SetupTLSConfig(security.TLSConfig{
 		CertFile:      test_util.ServerCertFile,
 		KeyFile:       test_util.ServerKeyFile,
 		CAFile:        test_util.CAFile,
@@ -26,7 +27,7 @@ func TestAgent(t *testing.T) {
 		ServerAddress: "127.0.0.1",
 	})
 	require.NoError(t, err)
-	peerTLSConfig, err := test_util.SetupTLSConfig(test_util.TLSConfig{
+	peerTLSConfig, err := security.SetupTLSConfig(security.TLSConfig{
 		CertFile:      test_util.RootClientCertFile,
 		KeyFile:       test_util.RootClientKeyFile,
 		CAFile:        test_util.CAFile,

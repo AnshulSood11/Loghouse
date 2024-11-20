@@ -57,7 +57,7 @@ func (l logStore) StoreLogs(raftLogs []*raft.Log) error {
 	return nil
 }
 
-// DeleteRange remove records that are old or stored in a snapshot
+// DeleteRange remove records that are old or stored in a Snapshot
 func (l logStore) DeleteRange(min, max uint64) error {
 	return l.Truncate(max)
 }

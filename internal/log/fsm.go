@@ -8,11 +8,11 @@ import (
 	"io"
 )
 
-type fsm struct {
+type FSM struct {
 	log *Log
 }
 
-var _ raft.FSM = (*fsm)(nil)
+var _ raft.FSM = (*FSM)(nil)
 
 type RequestType uint8
 
@@ -21,7 +21,7 @@ const (
 )
 
 // Apply is invoked by Raft after committing a log entry.
-func (f fsm) Apply(log *raft.Log) interface{} {
+func (f FSM) Apply(log *raft.Log) interface{} {
 	buf := log.Data
 	reqType := RequestType(buf[0])
 	switch reqType {
@@ -31,7 +31,7 @@ func (f fsm) Apply(log *raft.Log) interface{} {
 	return nil
 }
 
-func (f *fsm) applyAppend(b []byte) interface{} {
+func (f *FSM) applyAppend(b []byte) interface{} {
 	var req api.ProduceRequest
 	err := proto.Unmarshal(b, &req)
 	if err != nil {
@@ -46,13 +46,13 @@ func (f *fsm) applyAppend(b []byte) interface{} {
 
 // Snapshot returns an FSMSnapshot that represents a point-in-time snapshot of
 // the FSM’s state.
-func (f fsm) Snapshot() (raft.FSMSnapshot, error) {
+func (f FSM) Snapshot() (raft.FSMSnapshot, error) {
 	r := f.log.Reader()
-	return &snapshot{reader: r}, nil
+	return &Snapshot{reader: r}, nil
 }
 
-// Restore is called by Raft to restore an FSM from a snapshot.
-func (f fsm) Restore(snapshot io.ReadCloser) error {
+// Restore is called by Raft to restore an FSM from a Snapshot.
+func (f FSM) Restore(snapshot io.ReadCloser) error {
 	b := make([]byte, lenWidth)
 	var buf bytes.Buffer
 	for i := 0; ; i++ {
@@ -72,7 +72,7 @@ func (f fsm) Restore(snapshot io.ReadCloser) error {
 		}
 		// The FSM must discard existing state to make sure its state will match the
 		// leader’s replicated state, so we reset the log and configure its initial offset
-		// to the first record’s offset we read from the snapshot so the log’s offsets match.
+		// to the first record’s offset we read from the Snapshot so the log’s offsets match.
 		if i == 0 {
 			f.log.Config.Segment.InitialOffset = record.Offset
 			if err := f.log.Reset(); err != nil {
